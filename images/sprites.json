@@ -1,0 +1,13 @@
+{
+    "frames": {
+        "player": { "frame": { "x": 200, "y": 0, "w": 70, "h": 79 } },
+        "bullet": { "frame": { "x": 211, "y": 100, "w": 50, "h": 75 } },
+        "asteroid": { "frame": { "x": 278, "y": 0, "w": 134, "h": 123 } },
+        "explosion": { "frame": { "x": 0, "y": 0, "w": 256, "h": 256 } },
+        "playButton": { "frame": { "x": 428, "y": 12, "w": 70, "h": 70 } }
+    },
+    "meta": {
+        "image": "sprite.png",
+        "size": { "w": 512, "h": 512 }
+    }
+}
