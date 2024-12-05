@@ -1,7 +1,8 @@
 # Planet Defender
-
 > **Genre**: Arcade, Action, Shooter
+
 > **Platform**: 2D, Mobile/Desktop
+
 > **Technology**: JavaScript, Phaser
 
 ## Game Story
