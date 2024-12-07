@@ -27,6 +27,8 @@ let startButton, spaceship, bullets, asteroids;
 let angle = 0, radius = 200;
 let explosionSound; // Declare a variable for the explosion sound
 let gameStarted = false; // Track if the game has started
+let backgroundMusic;
+let gameOverFlag = false; // This flag ensures game over happens only once
 
 function preload() {
     // Load assets
@@ -38,8 +40,10 @@ function preload() {
     this.load.image('start', 'images/start.png');
     this.load.image('asteroid', 'images/asteroid.png');
     this.load.image('asteroid_destroyed', 'images/asteroid_destroyed.png');
+    this.load.image('game_over', 'images/game_over.png');
     this.load.audio('backgroundMusic', 'audios/background-music.mp3');
     this.load.audio('explosionMusic', 'audios/explosion-music.mp3');
+    this.load.audio('gameOverMusic', 'audios/game_over_music.mp3');
 }
 
 function create() {
@@ -52,11 +56,13 @@ function create() {
     // Add glow image behind Earth with significantly reduced scale
     const glow = this.add.image(width / 2, height / 2, 'glow');
     glow.setScale(Math.min(width, height) / 1000); // Significantly smaller glow
-    glow.setAlpha(0.1);
+    glow.setAlpha(0.3);
 
     // Add Earth image with a much smaller size
-    const earth = this.add.image(width / 2, height / 2, 'earth');
-    earth.setScale(Math.min(width, height) / 2000); // Much smaller Earth
+    const earth = this.physics.add.staticImage(width / 2, height / 2, 'earth');
+    earth.setScale(Math.min(width, height) / 2000);
+    earth.setCircle(earth.displayWidth / 2); // Circular collision boundary
+    earth.setOrigin(0.5, 0.5); // Center the Earth
 
     // Add spaceship image inside the glow, initially hidden
     spaceship = this.add.image(width / 2, height / 2 - 100, 'spaceship'); // Inside the glow
@@ -68,17 +74,22 @@ function create() {
     this.input.on('pointermove', (pointer) => {
         if (!gameStarted) return; // Do nothing if the game hasn't started
 
-        const angle = Phaser.Math.Angle.Between(
-            earth.x,
-            earth.y,
-            pointer.x,
-            pointer.y
-        );
-        const radius = 100; // Smaller radius to keep spaceship inside the glow
-        spaceship.x = earth.x + Math.cos(angle) * radius;
-        spaceship.y = earth.y + Math.sin(angle) * radius;
+        // Calculate the angle between the Earth and the pointer
+        const angle = Phaser.Math.Angle.Between(earth.x, earth.y, pointer.x, pointer.y);
 
-        // Rotate spaceship to face the pointer
+        // Define the orbit radius for the spaceship to move around the Earth
+        const orbitRadius = 100; // Keep this value consistent for a circular orbit
+
+        // Calculate the target position based on the angle and orbit radius
+        const targetX = earth.x + Math.cos(angle) * orbitRadius;
+        const targetY = earth.y + Math.sin(angle) * orbitRadius;
+
+        // Interpolate the spaceship's position for smoother and slower movement
+        const lerpFactor = 0.05; // Lower factor for slower interpolation
+        spaceship.x = Phaser.Math.Linear(spaceship.x, targetX, lerpFactor);
+        spaceship.y = Phaser.Math.Linear(spaceship.y, targetY, lerpFactor);
+
+        // Rotate the spaceship to face the pointer
         spaceship.setRotation(angle + Math.PI / 2);
     });
 
@@ -93,7 +104,7 @@ function create() {
 
     // Add Start button
     startButton = this.add.image(earth.x, earth.y, 'start').setInteractive();
-    startButton.setScale(Math.min(width, height) / 2500);
+    startButton.setScale(Math.min(width, height) / 4000);
 
     // Add button interactions
     startButton.on('pointerdown', () => {
@@ -106,11 +117,11 @@ function create() {
     });
 
     startButton.on('pointerover', () => {
-        startButton.setScale(Math.min(width, height) / 2300);
+        startButton.setScale(Math.min(width, height) / 3500);
     });
 
     startButton.on('pointerout', () => {
-        startButton.setScale(Math.min(width, height) / 2500);
+        startButton.setScale(Math.min(width, height) / 4000);
     });
 
     // Fire bullets on mouse click
@@ -146,7 +157,14 @@ function create() {
         // Destroy the asteroid
         asteroid.destroy();
     });
+
+
+    this.earth = earth;
+    backgroundMusic = this.sound.add('backgroundMusic');
+
+
 }
+
 
 function spawnAsteroids(earth) {
     const { width, height } = this.scale;
@@ -184,12 +202,6 @@ function spawnAsteroids(earth) {
         },
         loop: true,
     });
-
-    // Check for overlap with Earth
-    this.physics.add.overlap(asteroids, earth, () => {
-        alert('Game Over! The Earth has been hit!');
-        this.scene.restart();
-    });
 }
 
 function fireBullet() {
@@ -223,7 +235,56 @@ function fireBullet() {
 }
 function update() {
     // Continuous game logic
+
+    // Detect collision between asteroids and Earth
+    asteroids.getChildren().forEach((asteroid) => {
+        const distance = Phaser.Math.Distance.Between(this.earth.x, this.earth.y, asteroid.x, asteroid.y);
+
+        // If the asteroid is within the Earth's radius, trigger the alert and game over
+        if (distance < this.earth.displayWidth / 2) {
+            gameOver.call(this); // Trigger the game over function
+        }
+    });
 }
+
+
+
+function gameOver() {
+    if (gameOverFlag) return; // Prevent multiple triggers
+    gameOverFlag = true; // Set the flag to true once game over has started
+
+    const { width, height } = this.scale;
+    const gameOverImage = this.add.image(width / 2, height / 2, 'game_over');
+    gameOverImage.setScale(Math.min(width, height) / 1000);
+    gameOverImage.setDepth(2);
+
+    // Hide the spaceship (player) after collision
+    spaceship.setVisible(false);
+
+    // Stop all sounds and play collision sound
+    this.sound.stopAll();
+    const gameOverSound = this.sound.add('gameOverMusic');
+    gameOverSound.play({
+        volume: 0.8,
+        onComplete: () => {
+            setTimeout(() => {
+                this.tweens.add({
+                    targets: gameOverImage,
+                    alpha: 0,
+                    duration: 1000, // Duration of the fade-out effect
+                    onComplete: () => {
+                        gameOverImage.destroy(); // Destroy the game over image after fade-out
+                        alert("Game Over! The Earth has been hit! Start again");
+                        this.scene.restart(); // Restart the game after the alert
+                    }
+                });
+            }, 500); // Slight delay to ensure sound completion
+        }
+    });
+
+}
+
+
 
 function resize() {
     const { width, height } = this.scale;
@@ -245,6 +306,6 @@ function resize() {
     const startButton = this.children.getByName('startButton');
     if (startButton) {
         startButton.setPosition(width / 2, height / 2);
-        startButton.setScale(Math.min(width, height) / 2500);
+        startButton.setScale(Math.min(width, height) / 3000);
     }
 }
