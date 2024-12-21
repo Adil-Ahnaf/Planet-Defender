@@ -51,7 +51,7 @@ function preload() {
     this.load.audio('gameOverMusic', 'audios/game_over_music.mp3');
     this.load.image('asteroid', 'images/asteroid.png');
     this.load.image('alienSoldier', 'images/alien-soldier.png');
-    this.load.image('alienBoss', 'images/hasina.png');
+    this.load.image('alienBoss', 'images/big-boss.png');
     this.load.image('destroyed', 'images/destroyed.png');
 }
 
@@ -377,10 +377,6 @@ function spawnalienSoldiers(earth) {
                 });
             }
 
-            // Set the medium size for all helmet men
-            const scale = MEDIUM_ASTEROID_SIZE;
-
-
             // Create the helmet man sprite and set its scale
             const alienSoldier = alienSoldiers.create(x, y, 'alienSoldier');
             alienSoldier.setScale(0.1 * (Math.min(width, height) / 500));
@@ -438,14 +434,10 @@ function spawnAlienBoss(earth) {
                 });
             }
 
-            // Set the medium size for all helmet men
-            const scale = MEDIUM_ASTEROID_SIZE;
-            const originalSize = 'medium';
 
             // Create the helmet man sprite and set its scale
             const boss = alienBoss.create(x, y, 'alienBoss');
-            boss.setScale(scale * (Math.min(width, height) / 500));
-            boss.originalSize = originalSize;
+            boss.setScale(0.25 * (Math.min(width, height) / 500));
 
             // Calculate the direction towards the Earth
             const angle = Phaser.Math.Angle.Between(boss.x, boss.y, earth.x, earth.y);
