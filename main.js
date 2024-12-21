@@ -2,8 +2,8 @@
 const config = {
     type: Phaser.AUTO,
     scale: {
-        mode: Phaser.Scale.RESIZE, // Automatically resize with screen
-        autoCenter: Phaser.Scale.CENTER_BOTH, // Center the game on the screen
+        mode: Phaser.Scale.RESIZE,
+        autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     parent: 'gameContainer',
     width: window.innerWidth,
@@ -23,25 +23,19 @@ const config = {
 // Initialize the Phaser Game
 const game = new Phaser.Game(config);
 
-let startButton, spaceship, bullets, asteroids, helmetMen;
+let startButton, spaceship, bullets, asteroids, alienSoldiers, alienBoss;
 let angle = 0, radius = 200;
-let explosionSound; // Declare a variable for the explosion sound
-let gameStarted = false; // Track if the game has started
+let explosionSound;
+let gameStarted = false;
 let backgroundMusic;
-let gameOverFlag = false; // This flag ensures game over happens only once
-
+let gameOverFlag = false;
 let score = 0;
 let scoreText;
-
 
 // Global Variables for Asteroid Sizes
 const SMALL_ASTEROID_SIZE = 0.03;
 const MEDIUM_ASTEROID_SIZE = 0.08;
 const LARGE_ASTEROID_SIZE = 0.12;
-
-let hasina;
-let hasinaHitCount = 0; // Counter for hits on Hasina
-let hasinaHitProcessed = false; // Flag to prevent multiple hits in the same frame
 
 function preload() {
     // Load assets
@@ -51,14 +45,14 @@ function preload() {
     this.load.image('bullet', 'images/bullet.png');
     this.load.image('earth', 'images/earth.png');
     this.load.image('start', 'images/start.png');
-    this.load.image('asteroid', 'images/asteroid.png');
-    this.load.image('destroyed', 'images/destroyed.png');
     this.load.image('game_over', 'images/game_over.png');
     this.load.audio('backgroundMusic', 'audios/background-music.mp3');
     this.load.audio('explosionMusic', 'audios/explosion-music.mp3');
     this.load.audio('gameOverMusic', 'audios/game_over_music.mp3');
-    this.load.image('helmet_man', 'images/helmet_man.png');
-    this.load.image('hasina', 'images/hasina.png');
+    this.load.image('asteroid', 'images/asteroid.png');
+    this.load.image('alienSoldier', 'images/alien-soldier.png');
+    this.load.image('alienBoss', 'images/hasina.png');
+    this.load.image('destroyed', 'images/destroyed.png');
 }
 
 function create() {
@@ -73,35 +67,34 @@ function create() {
     this.glow.setScale(Math.min(width, height) / 1000);
     this.glow.setAlpha(0.3);
 
-
     // Add Earth image with a much smaller size
     const earth = this.physics.add.staticImage(width / 2, height / 2, 'earth');
     earth.setScale(Math.min(width, height) / 2000);
-    earth.setCircle(earth.displayWidth / 2); // Circular collision boundary
-    earth.setOrigin(0.5, 0.5); // Center the Earth
+    earth.setCircle(earth.displayWidth / 2);
+    earth.setOrigin(0.5, 0.5);
 
     // Add spaceship image inside the glow, initially hidden
-    spaceship = this.add.image(width / 2, height / 2 - 100, 'spaceship'); // Inside the glow
-    spaceship.setScale(0.2); // Significantly smaller spaceship
-    spaceship.setDepth(1); // Ensure it appears above Earth
-    spaceship.setVisible(false); // Initially hide the spaceship
+    spaceship = this.add.image(width / 2, height / 2 - 100, 'spaceship');
+    spaceship.setScale(0.2);
+    spaceship.setDepth(1);
+    spaceship.setVisible(false);
 
     // Handle mouse movement for spaceship rotation
     this.input.on('pointermove', (pointer) => {
-        if (!gameStarted) return; // Do nothing if the game hasn't started
+        if (!gameStarted) return;
 
         // Calculate the angle between the Earth and the pointer
         const angle = Phaser.Math.Angle.Between(earth.x, earth.y, pointer.x, pointer.y);
 
         // Define the orbit radius for the spaceship to move around the Earth
-        const orbitRadius = 100; // Keep this value consistent for a circular orbit
+        const orbitRadius = 100;
 
         // Calculate the target position based on the angle and orbit radius
         const targetX = earth.x + Math.cos(angle) * orbitRadius;
         const targetY = earth.y + Math.sin(angle) * orbitRadius;
 
         // Interpolate the spaceship's position for smoother and slower movement
-        const lerpFactor = 0.05; // Lower factor for slower interpolation
+        const lerpFactor = 0.05;
         spaceship.x = Phaser.Math.Linear(spaceship.x, targetX, lerpFactor);
         spaceship.y = Phaser.Math.Linear(spaceship.y, targetY, lerpFactor);
 
@@ -109,18 +102,14 @@ function create() {
         spaceship.setRotation(angle + Math.PI / 2);
     });
 
-    // Add bullet group
+    // Add game object
     bullets = this.physics.add.group({
         defaultKey: 'bullet',
         maxSize: 10
     });
-
     asteroids = this.physics.add.group();
-    helmetMen = this.physics.add.group();
-    hasina = this.physics.add.sprite(-100, -100, 'hasina');
-    hasina.setScale(0.3 * (Math.min(width, height) / 500)); // Make Hasina larger
-    hasina.setOrigin(0.5, 0.5); // Center the origin
-
+    alienSoldiers = this.physics.add.group();
+    alienBoss = this.physics.add.group();
 
     scoreText = this.add.text(10, 10, `Score: ${score}`, {
         fontSize: '20px',
@@ -133,14 +122,16 @@ function create() {
 
     // Add button interactions
     startButton.on('pointerdown', () => {
-        startButton.destroy(); // Remove the start button
-        spaceship.setVisible(true); // Show the spaceship
-        gameStarted = true; // Set the game as started
         const music = this.sound.add('backgroundMusic');
         music.play({ loop: true, volume: 0.5 });
+
+        startButton.destroy();
+        spaceship.setVisible(true);
+        gameStarted = true;
+        
         spawnAsteroids.call(this, earth);
-        spawnHelmetMen.call(this, earth);
-        spawnHasina.call(this, earth);
+        spawnalienSoldiers.call(this, earth);
+        spawnAlienBoss.call(this, earth);
 
     });
 
@@ -154,7 +145,7 @@ function create() {
 
     // Fire bullets on mouse click
     this.input.on('pointerdown', () => {
-        if (!gameStarted || gameOverFlag) return; // Prevent firing bullets if the game hasn't started or if the game is over
+        if (!gameStarted || gameOverFlag) return;
         fireBullet.call(this);
 
     });
@@ -199,7 +190,8 @@ function create() {
         updateScoreText();
     });
 
-    this.physics.add.collider(bullets, helmetMen, (bullet, helmetMan) => {
+     // Handle collision between bullets and alienSoldier
+    this.physics.add.collider(bullets, alienSoldiers, (bullet, alienSoldier) => {
         console.log("Called for helmet man");
 
         // Destroy bullet
@@ -209,55 +201,72 @@ function create() {
         const explosionSound = this.sound.add('explosionMusic');
         explosionSound.play({ volume: 0.5 });
 
-        // Replace helmet_man with an explosion effect
-        const explosion = this.add.sprite(helmetMan.x, helmetMan.y, 'destroyed');
-        explosion.setScale(helmetMan.scaleX); // Match the size
+        // Replace alienSoldier with an explosion effect
+        const explosion = this.add.sprite(alienSoldier.x, alienSoldier.y, 'destroyed');
+        explosion.setScale(alienSoldier.scaleX);
         explosion.setOrigin(0.5, 0.5);
 
         this.tweens.add({
             targets: explosion,
             alpha: 0,
-            scaleX: helmetMan.scaleX * 1.5,
-            scaleY: helmetMan.scaleY * 1.5,
+            scaleX: alienSoldier.scaleX * 1.5,
+            scaleY: alienSoldier.scaleY * 1.5,
             duration: 500,
             onComplete: () => explosion.destroy(),
         });
 
-        helmetMan.destroy();
+        alienSoldier.destroy();
 
         score += 10;
         updateScoreText();
     });
 
-    this.physics.add.collider(bullets, hasina, (bullet, hasinaSprite) => {
-        // Increment hit count
-        hasinaHitCount++;
-        console.log(hasinaSprite);
+    // Handle overlap between bullets and alienBoss
+    this.physics.add.overlap(bullets, alienBoss, (bullet, boss) => {
+        console.log("Collision detected with asteroid");
 
-        // Adjust any behavior for hasinaSprite
-        // hasinaSprite.setVelocityX(200); // Apply velocity or other logic if needed
-        //
-        // // Hide the bullet and deactivate it
-        hasinaSprite.setVisible(true);
-        hasinaSprite.setActive(true);
-        bullet.setVisible(false);
-        bullet.setActive(false);
+        // Destroy the bullet
+        bullet.destroy();
+
+        // Play explosion sound effect
+        const explosionSound = this.sound.add('explosionMusic');
+        explosionSound.play({ volume: 0.5 }); // Adjust volume as needed
+
+        // Check or initialize the asteroid's hit count
+        if (!boss.hitCount) {
+            boss.hitCount = 0; // Initialize if not already set
+        }
+
+        // Increment the asteroid's hit count
+        boss.hitCount++;
+
+        // If the asteroid has been hit twice, destroy it
+        if (boss.hitCount >= 3) {
+            // Replace the asteroid with an explosion effect
+            const explosion = this.add.sprite(boss.x, boss.y, 'destroyed');
+            explosion.setScale(boss.scaleX); // Match the asteroid's size
+            explosion.setOrigin(0.5, 0.5);
+
+            // Add an animation for the explosion (fade out and destroy)
+            this.tweens.add({
+                targets: explosion,
+                alpha: 0,
+                scaleX: boss.scaleX * 1.5, // Slightly enlarge the explosion
+                scaleY: boss.scaleY * 1.5,
+                duration: 500, // Animation duration (ms)
+                onComplete: () => explosion.destroy(), // Destroy sprite after animation
+            });
+
+            // Destroy the asteroid
+            boss.destroy();
+            score += 20;
+            updateScoreText();
+        } else {
+            // If not destroyed, provide feedback (e.g., change asteroid color briefly)
+            boss.setTint(0xff0000); // Red tint for hit feedback
+            this.time.delayedCall(200, () => boss.clearTint());
+        }
     });
-
-    // this.physics.add.collider(bullets, hasina, (bullet, hasina) => {
-    //     console.log("Called for hasina");
-    //     bullet.destroy();
-    //     // // Increment hit count
-    //     // hasinaHitCount++;
-    //     // hasina.setVisible(true);
-    //     // console.log(hasina);
-    //     // //hasina.setVisible(true);
-    //     // //hasina.setAlpha(1);
-    //     //
-    //     // hasina.setVelocityX(200);
-    //
-    // });
-
 
     this.earth = earth;
     backgroundMusic = this.sound.add('backgroundMusic');
@@ -269,7 +278,6 @@ function updateScoreText() {
         scoreText.setText(`Score: ${score}`);
     }
 }
-
 
 function spawnAsteroids(earth) {
     const { width, height } = this.scale;
@@ -330,19 +338,18 @@ function spawnAsteroids(earth) {
     });
 }
 
-
-function spawnHelmetMen(earth) {
+function spawnalienSoldiers(earth) {
     const { width, height } = this.scale;
 
-    // Repeatedly spawn helmet man
+    // Repeatedly spawn alien solider
     this.time.addEvent({
-        delay: 3000,
+        delay: 5000,
         callback: () => {
             let x, y, edge;
             let spawnSuccessful = false;
 
             while (!spawnSuccessful) {
-                edge = Phaser.Math.Between(0, 3);  // 4 edges (top, bottom, left, right)
+                edge = Phaser.Math.Between(0, 3);
                 switch (edge) {
                     case 0: // Top edge
                         x = Phaser.Math.Between(0, width);
@@ -363,9 +370,71 @@ function spawnHelmetMen(earth) {
                 }
 
                 // Check if there's enough space to spawn
-                spawnSuccessful = !helmetMen.getChildren().some((helmet) => {
-                    const distance = Phaser.Math.Distance.Between(x, y, helmet.x, helmet.y);
-                    return distance < Math.min(width, height) / 20;  // Prevent spawn too close to others
+                spawnSuccessful = !alienSoldiers.getChildren().some((alienSoldier) => {
+                    const distance = Phaser.Math.Distance.Between(x, y, alienSoldier.x, alienSoldier.y);
+                    // Prevent spawn too close to others
+                    return distance < Math.min(width, height) / 20;
+                });
+            }
+
+            // Set the medium size for all helmet men
+            const scale = MEDIUM_ASTEROID_SIZE;
+
+
+            // Create the helmet man sprite and set its scale
+            const alienSoldier = alienSoldiers.create(x, y, 'alienSoldier');
+            alienSoldier.setScale(0.1 * (Math.min(width, height) / 500));
+
+            // Calculate the direction towards the Earth
+            const angle = Phaser.Math.Angle.Between(alienSoldier.x, alienSoldier.y, earth.x, earth.y);
+            const speed = 20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
+
+            // Set the velocity straight toward the Earth
+            alienSoldier.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+
+            // No angular velocity (no rotation)
+            alienSoldier.setAngularVelocity(0);
+        },
+        loop: true,
+    });
+}
+
+function spawnAlienBoss(earth) {
+    const { width, height } = this.scale;
+
+    // Repeatedly spawn alien solider
+    this.time.addEvent({
+        delay: 9000,
+        callback: () => {
+            let x, y, edge;
+            let spawnSuccessful = false;
+
+            while (!spawnSuccessful) {
+                edge = Phaser.Math.Between(0, 3);
+                switch (edge) {
+                    case 0: // Top edge
+                        x = Phaser.Math.Between(0, width);
+                        y = -50;
+                        break;
+                    case 1: // Bottom edge
+                        x = Phaser.Math.Between(0, width);
+                        y = height + 50;
+                        break;
+                    case 2: // Left edge
+                        x = -50;
+                        y = Phaser.Math.Between(0, height);
+                        break;
+                    case 3: // Right edge
+                        x = width + 50;
+                        y = Phaser.Math.Between(0, height);
+                        break;
+                }
+
+                // Check if there's enough space to spawn
+                spawnSuccessful = !alienBoss.getChildren().some((boss) => {
+                    const distance = Phaser.Math.Distance.Between(x, y, boss.x, boss.y);
+                    // Prevent spawn too close to others
+                    return distance < Math.min(width, height) / 20;
                 });
             }
 
@@ -374,59 +443,22 @@ function spawnHelmetMen(earth) {
             const originalSize = 'medium';
 
             // Create the helmet man sprite and set its scale
-            const helmetMan = helmetMen.create(x, y, 'helmet_man');
-            helmetMan.setScale(scale * (Math.min(width, height) / 500));
-            helmetMan.originalSize = originalSize;  // Store the original size category
+            const boss = alienBoss.create(x, y, 'alienBoss');
+            boss.setScale(scale * (Math.min(width, height) / 500));
+            boss.originalSize = originalSize;
 
             // Calculate the direction towards the Earth
-            const angle = Phaser.Math.Angle.Between(helmetMan.x, helmetMan.y, earth.x, earth.y);
+            const angle = Phaser.Math.Angle.Between(boss.x, boss.y, earth.x, earth.y);
             const speed = 20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
 
             // Set the velocity straight toward the Earth
-            helmetMan.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+            boss.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
 
             // No angular velocity (no rotation)
-            helmetMan.setAngularVelocity(0);
-
+            boss.setAngularVelocity(0);
         },
         loop: true,
     });
-}
-
-function spawnHasina(earth) {
-    const { width, height } = this.scale;
-
-    // Randomly choose an edge (top, bottom, left, or right)
-    let x, y, edge = Phaser.Math.Between(0, 3);
-
-    switch (edge) {
-        case 0: // Top edge
-            x = Phaser.Math.Between(0, width);
-            y = -50;
-            break;
-        case 1: // Bottom edge
-            x = Phaser.Math.Between(0, width);
-            y = height + 50;
-            break;
-        case 2: // Left edge
-            x = -50;
-            y = Phaser.Math.Between(0, height);
-            break;
-        case 3: // Right edge
-            x = width + 50;
-            y = Phaser.Math.Between(0, height);
-            break;
-    }
-
-    // Place Hasina at the chosen location
-    hasina.setPosition(x, y);
-
-    // Calculate direction towards the Earth
-    const angle = Phaser.Math.Angle.Between(x, y, earth.x, earth.y);
-    const speed = 5;
-
-    // Move Hasina toward the Earth
-    hasina.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
 }
 
 function fireBullet() {
@@ -459,28 +491,25 @@ function fireBullet() {
     }
 }
 
-
 function update() {
-
     // Ensure there are asteroids to check
     if (asteroids && asteroids.getChildren().length > 0) {
         // Loop through all asteroids
         asteroids.getChildren().forEach((asteroid) => {
             const distance = Phaser.Math.Distance.Between(this.earth.x, this.earth.y, asteroid.x, asteroid.y);
-
             // If the asteroid is within the Earth's radius, trigger the game over for medium and large asteroids
             if (distance < this.earth.displayWidth / 2) {
                 const asteroidSize = asteroid.originalScale; // Use originalScale to determine size
                 // Call gameOver only for medium and large asteroids
-                if (asteroidSize == 'medium' || asteroidSize == 'large') {  // Medium or large asteroids
-                    gameOver.call(this);  // Trigger the game over function
+                if (asteroidSize == 'medium' || asteroidSize == 'large') {
+                    gameOver.call(this); 
                 }
 
                 // Check if the asteroid is small (originalScale <= 0.075) and if it collides with the earth's glow
                 if (asteroidSize == 'small') {
                     const glowDistance = Phaser.Math.Distance.Between(this.glow.x, this.glow.y, asteroid.x, asteroid.y);
                     if (glowDistance < this.glow.displayWidth / 2) {
-                        createDestructionEffect.call(this, asteroid, asteroid.scale);  // Pass scale for asteroid
+                        createDestructionEffect.call(this, asteroid, asteroid.scale);
                         asteroid.destroy();
                         score -= 1;
                         updateScoreText.call(this);
@@ -490,30 +519,24 @@ function update() {
         });
     }
 
-    // Ensure there are helmetMen to check
-    if (helmetMen && helmetMen.getChildren().length > 0) {
-        helmetMen.getChildren().forEach((helmetMan) => {
-            const distance = Phaser.Math.Distance.Between(this.earth.x, this.earth.y, helmetMan.x, helmetMan.y);
+    // Ensure there are alienSoldiers to check
+    if (alienSoldiers && alienSoldiers.getChildren().length > 0) {
+        alienSoldiers.getChildren().forEach((alienSoldier) => {
+            const distance = Phaser.Math.Distance.Between(this.earth.x, this.earth.y, alienSoldier.x, alienSoldier.y);
             if (distance < this.earth.displayWidth / 2) {
-                const helmetManSize = helmetMan.scale;
-                if (helmetManSize <= 0.105) {
-                    createDestructionEffect.call(this, helmetMan, helmetManSize);  // Pass scale for helmet man
-                    helmetMan.destroy();
-                    score -= 10;
-                    updateScoreText.call(this);
-                }
+                gameOver.call(this);
             }
         });
     }
 
-    hasinaHitProcessed = false;
-    if (hasina) {
-        const distance = Phaser.Math.Distance.Between(this.earth.x, this.earth.y, hasina.x, hasina.y);
-
-        // Trigger game over if Hasina reaches the Earth
-        if (distance < this.earth.displayWidth / 2) {
-            gameOver.call(this);
-        }
+    // Ensure there are alienBoss to check
+    if (alienBoss && alienBoss.getChildren().length > 0) {
+        alienBoss.getChildren().forEach((boss) => {
+            const distance = Phaser.Math.Distance.Between(this.earth.x, this.earth.y, boss.x, boss.y);
+            if (distance < this.earth.displayWidth / 2) {
+                gameOver.call(this);
+            }
+        });
     }
 }
 
@@ -538,8 +561,6 @@ function createDestructionEffect(target, size) {
         }
     });
 }
-
-
 
 function gameOver() {
     if (gameOverFlag) return; // Prevent multiple triggers
@@ -572,9 +593,6 @@ function gameOver() {
         this.scene.restart();
     }, [], this); // Pass `this` as the context
 }
-
-
-
 
 function resize() {
     const { width, height } = this.scale;
