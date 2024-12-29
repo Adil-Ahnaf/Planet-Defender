@@ -1,3 +1,7 @@
+import { AsteroidBuilder } from './builders/AsteroidBuilder.js';
+import { AlienSoldierBuilder } from './builders/AlienSoldierBuilder.js';
+
+
 // Phaser Game Configuration
 const config = {
     type: Phaser.AUTO,
@@ -305,34 +309,26 @@ function spawnAsteroids(earth) {
                 });
             }
 
-            // Create the asteroid
-            const sizeCategory = Phaser.Math.Between(1, 3); // Randomly choose 1, 2, or 3 for small, medium, or large
+            // Randomly choose a size category for the asteroid
+            const sizeCategory = Phaser.Math.Between(1, 3);
 
-            let scale;
-            let originalSize;
+            // Use the builder to create the asteroid
+            const asteroidBuilder = new AsteroidBuilder();
+            const asteroid = asteroidBuilder
+                .setSize(sizeCategory)
+                .setPosition(x, y)
+                .setVelocity(20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500), Phaser.Math.Angle.Between(x, y, earth.x, earth.y))
+                .setAngularVelocity(10)
+                .build();
 
-            if (sizeCategory === 1) {
-                scale = SMALL_ASTEROID_SIZE;
-                originalSize = 'small';
-            } else if (sizeCategory === 2) {
-                scale = MEDIUM_ASTEROID_SIZE;
-                originalSize = 'medium';
-            } else {
-                scale = LARGE_ASTEROID_SIZE;
-                originalSize = 'large';
-            }
+            // Create the asteroid in the game world
+            const asteroidSprite = asteroids.create(asteroid.x, asteroid.y, 'asteroid');
+            asteroidSprite.setScale(asteroid.scale * (Math.min(width, height) / 500));
+            asteroidSprite.originalScale = asteroid.originalSize; // Store the original size category
 
-
-            const asteroid = asteroids.create(x, y, 'asteroid');
-            asteroid.setScale(scale * (Math.min(width, height) / 500));
-            asteroid.originalScale = originalSize; // Store the original size category
-
-            const speed = 20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
-            const angle = Phaser.Math.Angle.Between(asteroid.x, asteroid.y, earth.x, earth.y);
-
-            asteroid.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-            asteroid.setAngularVelocity(10);
-
+            // Set the asteroid's velocity and angular velocity
+            asteroidSprite.setVelocity(asteroid.velocity.x, asteroid.velocity.y);
+            asteroidSprite.setAngularVelocity(asteroid.angularVelocity);
         },
         loop: true,
     });
@@ -341,7 +337,7 @@ function spawnAsteroids(earth) {
 function spawnalienSoldiers(earth) {
     const { width, height } = this.scale;
 
-    // Repeatedly spawn alien solider
+    // Repeatedly spawn alien soldiers
     this.time.addEvent({
         delay: 5000,
         callback: () => {
@@ -349,51 +345,35 @@ function spawnalienSoldiers(earth) {
             let spawnSuccessful = false;
 
             while (!spawnSuccessful) {
-                edge = Phaser.Math.Between(0, 3);
+                edge = Phaser.Math.Between(0, 7);
                 switch (edge) {
-                    case 0: // Top edge
-                        x = Phaser.Math.Between(0, width);
-                        y = -50;
-                        break;
-                    case 1: // Bottom edge
-                        x = Phaser.Math.Between(0, width);
-                        y = height + 50;
-                        break;
-                    case 2: // Left edge
-                        x = -50;
-                        y = Phaser.Math.Between(0, height);
-                        break;
-                    case 3: // Right edge
-                        x = width + 50;
-                        y = Phaser.Math.Between(0, height);
-                        break;
+                    case 0: x = Phaser.Math.Between(0, width); y = -50; break;
+                    case 1: x = Phaser.Math.Between(0, width); y = height + 50; break;
+                    case 2: x = -50; y = Phaser.Math.Between(0, height); break;
+                    case 3: x = width + 50; y = Phaser.Math.Between(0, height); break;
+                    default: x = Phaser.Math.Between(0, width); y = -50;
                 }
 
-                // Check if there's enough space to spawn
-                spawnSuccessful = !alienSoldiers.getChildren().some((alienSoldier) => {
-                    const distance = Phaser.Math.Distance.Between(x, y, alienSoldier.x, alienSoldier.y);
-                    // Prevent spawn too close to others
+                spawnSuccessful = !alienSoldiers.getChildren().some((soldier) => {
+                    const distance = Phaser.Math.Distance.Between(x, y, soldier.x, soldier.y);
                     return distance < Math.min(width, height) / 20;
                 });
             }
 
-            // Create the helmet man sprite and set its scale
-            const alienSoldier = alienSoldiers.create(x, y, 'alienSoldier');
-            alienSoldier.setScale(0.1 * (Math.min(width, height) / 500));
-
-            // Calculate the direction towards the Earth
-            const angle = Phaser.Math.Angle.Between(alienSoldier.x, alienSoldier.y, earth.x, earth.y);
-            const speed = 20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
-
-            // Set the velocity straight toward the Earth
-            alienSoldier.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
-
-            // No angular velocity (no rotation)
-            alienSoldier.setAngularVelocity(0);
+            // Create an Alien Soldier using the builder, passing the scene (`this`)
+            const builder = new AlienSoldierBuilder(this);  // Pass the scene
+            const alienSoldier = builder
+                .setPosition(x, y)
+                .setScale(0.1)
+                .setSpeed(150)
+                .setHealth(100)
+                .build();
+            alienSoldiers.add(alienSoldier.sprite);
         },
         loop: true,
     });
 }
+
 
 function spawnAlienBoss(earth) {
     const { width, height } = this.scale;
