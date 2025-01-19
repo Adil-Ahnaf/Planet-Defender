@@ -60,7 +60,7 @@ function create() {
   background.setDisplaySize(width, height);
 
   // Add glow image behind Earth with significantly reduced scale
-  this.glow = this.add.image(width / 2, height / 2, "glow");
+  this.glow = this.physics.add.staticImage(width / 2, height / 2, "glow");
   this.glow.setScale(Math.min(width, height) / 750);
   this.glow.setAlpha(0.18);
 
@@ -127,8 +127,8 @@ function create() {
     gameStarted = true;
 
     spawnAsteroids.call(this, earth);
-    spawnalienSoldiers.call(this, earth);
-    spawnAlienBoss.call(this, earth);
+    //spawnalienSoldiers.call(this, earth);
+    //spawnAlienBoss.call(this, earth);
   });
 
   startButton.on("pointerover", () => {
@@ -355,62 +355,75 @@ function spawnAsteroids(earth) {
 }
 
 function spawnalienSoldiers(earth) {
-    const { width, height } = this.scale;
+  const { width, height } = this.scale;
 
-    // Repeatedly spawn alien solider
-    this.time.addEvent({
-        delay: 5000,
-        callback: () => {
-            let x, y, edge;
-            let spawnSuccessful = false;
+  // Repeatedly spawn alien solider
+  this.time.addEvent({
+    delay: 5000,
+    callback: () => {
+      let x, y, edge;
+      let spawnSuccessful = false;
 
-            while (!spawnSuccessful) {
-                edge = Phaser.Math.Between(0, 3);
-                switch (edge) {
-                    case 0: // Top edge
-                        x = Phaser.Math.Between(0, width);
-                        y = -50;
-                        break;
-                    case 1: // Bottom edge
-                        x = Phaser.Math.Between(0, width);
-                        y = height + 50;
-                        break;
-                    case 2: // Left edge
-                        x = -50;
-                        y = Phaser.Math.Between(0, height);
-                        break;
-                    case 3: // Right edge
-                        x = width + 50;
-                        y = Phaser.Math.Between(0, height);
-                        break;
-                }
+      while (!spawnSuccessful) {
+        edge = Phaser.Math.Between(0, 3);
+        switch (edge) {
+          case 0: // Top edge
+            x = Phaser.Math.Between(0, width);
+            y = -50;
+            break;
+          case 1: // Bottom edge
+            x = Phaser.Math.Between(0, width);
+            y = height + 50;
+            break;
+          case 2: // Left edge
+            x = -50;
+            y = Phaser.Math.Between(0, height);
+            break;
+          case 3: // Right edge
+            x = width + 50;
+            y = Phaser.Math.Between(0, height);
+            break;
+        }
 
-                // Check if there's enough space to spawn
-                spawnSuccessful = !alienSoldiers.getChildren().some((alienSoldier) => {
-                    const distance = Phaser.Math.Distance.Between(x, y, alienSoldier.x, alienSoldier.y);
-                    // Prevent spawn too close to others
-                    return distance < Math.min(width, height) / 20;
-                });
-            }
+        // Check if there's enough space to spawn
+        spawnSuccessful = !alienSoldiers.getChildren().some((alienSoldier) => {
+          const distance = Phaser.Math.Distance.Between(
+            x,
+            y,
+            alienSoldier.x,
+            alienSoldier.y
+          );
+          // Prevent spawn too close to others
+          return distance < Math.min(width, height) / 20;
+        });
+      }
 
-            // Create the helmet man sprite and set its scale
-            const alienSoldier = alienSoldiers.create(x, y, 'alienSoldier');
-            alienSoldier.setScale(0.1 * (Math.min(width, height) / 500));
+      // Create the helmet man sprite and set its scale
+      const alienSoldier = alienSoldiers.create(x, y, "alienSoldier");
+      alienSoldier.setScale(0.1 * (Math.min(width, height) / 500));
 
-            // Calculate the direction towards the Earth
-            angle = Phaser.Math.Angle.Between(alienSoldier.x, alienSoldier.y, earth.x, earth.y);
-            const speed = 20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
+      // Calculate the direction towards the Earth
+      angle = Phaser.Math.Angle.Between(
+        alienSoldier.x,
+        alienSoldier.y,
+        earth.x,
+        earth.y
+      );
+      const speed =
+        20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
 
-            // Set the velocity straight toward the Earth
-            alienSoldier.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
+      // Set the velocity straight toward the Earth
+      alienSoldier.setVelocity(
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed
+      );
 
-            // No angular velocity (no rotation)
-            alienSoldier.setAngularVelocity(0);
-        },
-        loop: true,
-    });
+      // No angular velocity (no rotation)
+      alienSoldier.setAngularVelocity(0);
+    },
+    loop: true,
+  });
 }
-
 
 function spawnAlienBoss(earth) {
   const { width, height } = this.scale;
@@ -508,34 +521,43 @@ function update() {
   if (asteroids && asteroids.getChildren().length > 0) {
     // Loop through all asteroids
     asteroids.getChildren().forEach((asteroid) => {
-      const distance = Phaser.Math.Distance.Between(
+      const asteroidSize = asteroid.originalScale; // Use originalScale to determine size
+
+      // Only check small asteroids for destruction within the glow area
+      if (asteroidSize == "small") {
+        const glowDistance = Phaser.Math.Distance.Between(
+          this.glow.x,
+          this.glow.y,
+          asteroid.x,
+          asteroid.y
+        );
+
+        // Check if the asteroid's entire size is within the glow area
+        if (
+          glowDistance <
+          this.glow.displayWidth / 2 - asteroid.displayWidth / 2
+        ) {
+          // Log "Hello" when a small asteroid fully enters the glow area
+          console.log("Hello");
+          createDestructionEffect.call(this, asteroid, asteroid.scale);
+          asteroid.destroy();
+          score -= 1;
+          updateScoreText.call(this);
+        }
+      }
+
+      // If the asteroid is within the Earth's radius, trigger the game over for medium and large asteroids
+      const earthDistance = Phaser.Math.Distance.Between(
         this.earth.x,
         this.earth.y,
         asteroid.x,
         asteroid.y
       );
-      // If the asteroid is within the Earth's radius, trigger the game over for medium and large asteroids
-      if (distance < this.earth.displayWidth / 2) {
-        const asteroidSize = asteroid.originalScale; // Use originalScale to determine size
+
+      if (earthDistance < this.earth.displayWidth / 2) {
         // Call gameOver only for medium and large asteroids
         if (asteroidSize == "medium" || asteroidSize == "large") {
           gameOver.call(this);
-        }
-
-        // Check if the asteroid is small (originalScale <= 0.075) and if it collides with the earth's glow
-        if (asteroidSize == "small") {
-          const glowDistance = Phaser.Math.Distance.Between(
-            this.glow.x,
-            this.glow.y,
-            asteroid.x,
-            asteroid.y
-          );
-          if (glowDistance < this.glow.displayWidth / 2) {
-            createDestructionEffect.call(this, asteroid, asteroid.scale);
-            asteroid.destroy();
-            score -= 1;
-            updateScoreText.call(this);
-          }
         }
       }
     });
