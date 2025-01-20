@@ -33,6 +33,8 @@ let backgroundMusic;
 let gameOverFlag = false;
 let score = 0;
 let scoreText;
+let alienSoldierSpawningStarted = false;
+let alienBossSpawningStarted = false;
 
 function preload() {
   // Load assets
@@ -127,8 +129,6 @@ function create() {
     gameStarted = true;
 
     spawnAsteroids.call(this, earth);
-    spawnalienSoldiers.call(this, this.earth);
-    spawnAlienBoss.call(this, earth);
   });
 
   startButton.on("pointerover", () => {
@@ -361,6 +361,8 @@ function spawnalienSoldiers(earth) {
   this.time.addEvent({
     delay: 5000,
     callback: () => {
+      if (score <= 50) return;
+
       let x, y, edge;
       let spawnSuccessful = false;
 
@@ -428,10 +430,12 @@ function spawnalienSoldiers(earth) {
 function spawnAlienBoss(earth) {
   const { width, height } = this.scale;
 
-  // Repeatedly spawn alien solider
+  // Repeatedly spawn alien boss
   this.time.addEvent({
     delay: 9000,
     callback: () => {
+      if (score <= 100) return;
+
       let x, y, edge;
       let spawnSuccessful = false;
 
@@ -572,6 +576,18 @@ function update() {
     });
   }
 
+  // Check if the score is more than 50 and alienSoldier spawning hasn't started
+  if (score > 50 && !alienSoldierSpawningStarted) {
+    alienSoldierSpawningStarted = true;
+    spawnalienSoldiers.call(this, this.earth);
+  }
+
+  // Check if the score is more than 100 and alienBoss spawning hasn't started
+  if (score > 100 && !alienBossSpawningStarted) {
+    alienBossSpawningStarted = true;
+    spawnAlienBoss.call(this, this.earth);
+  }
+
   // Ensure there are alienSoldiers to check
   if (alienSoldiers && alienSoldiers.getChildren().length > 0) {
     alienSoldiers.getChildren().forEach((alienSoldier) => {
@@ -654,8 +670,10 @@ function gameOver() {
   this.time.delayedCall(
     6000,
     () => {
-      gameOverFlag = false; // Reset the game over flag
-      gameOverImage.destroy(); // Remove the game over image
+      gameOverFlag = false;
+      alienSoldierSpawningStarted = false;
+      alienBossSpawningStarted = false;
+      gameOverImage.destroy();
       this.scene.restart();
     },
     [],
