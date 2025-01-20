@@ -61,12 +61,12 @@ function create() {
 
   // Add glow image behind Earth with significantly reduced scale
   this.glow = this.physics.add.staticImage(width / 2, height / 2, "glow");
-  this.glow.setScale(Math.min(width, height) / 750);
+  this.glow.setScale(Math.min(width, height) / 820);
   this.glow.setAlpha(0.18);
 
   // Add Earth image with a much smaller size
   const earth = this.physics.add.staticImage(width / 2, height / 2, "earth");
-  earth.setScale(Math.min(width, height) / 2000);
+  earth.setScale(Math.min(width, height) / 2500);
   earth.setCircle(earth.displayWidth / 2);
   earth.setOrigin(0.5, 0.5);
 
@@ -127,8 +127,8 @@ function create() {
     gameStarted = true;
 
     spawnAsteroids.call(this, earth);
-    //spawnalienSoldiers.call(this, earth);
-    //spawnAlienBoss.call(this, earth);
+    spawnalienSoldiers.call(this, this.earth);
+    spawnAlienBoss.call(this, earth);
   });
 
   startButton.on("pointerover", () => {
@@ -410,7 +410,7 @@ function spawnalienSoldiers(earth) {
         earth.y
       );
       const speed =
-        20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
+        70 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
 
       // Set the velocity straight toward the Earth
       alienSoldier.setVelocity(
@@ -471,7 +471,7 @@ function spawnAlienBoss(earth) {
       // Calculate the direction towards the Earth
       angle = Phaser.Math.Angle.Between(boss.x, boss.y, earth.x, earth.y);
       const speed =
-        20 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
+        70 + Phaser.Math.Between(0, 10) * (Math.min(width, height) / 500);
 
       // Set the velocity straight toward the Earth
       boss.setVelocity(Math.cos(angle) * speed, Math.sin(angle) * speed);
@@ -523,30 +523,39 @@ function update() {
     asteroids.getChildren().forEach((asteroid) => {
       const asteroidSize = asteroid.originalScale; // Use originalScale to determine size
 
-      // Only check small asteroids for destruction within the glow area
-      if (asteroidSize == "small") {
-        const glowDistance = Phaser.Math.Distance.Between(
-          this.glow.x,
-          this.glow.y,
-          asteroid.x,
-          asteroid.y
-        );
+      // Check all asteroids within the glow area
+      const glowDistance = Phaser.Math.Distance.Between(
+        this.glow.x,
+        this.glow.y,
+        asteroid.x,
+        asteroid.y
+      );
 
-        // Check if the asteroid's entire size is within the glow area
-        if (
-          glowDistance <
-          this.glow.displayWidth / 2 - asteroid.displayWidth / 2
-        ) {
-          // Log "Hello" when a small asteroid fully enters the glow area
+      // If the asteroid's entire size is within the glow area
+      if (
+        glowDistance <
+        this.glow.displayWidth / 2 - asteroid.displayWidth / 2
+      ) {
+        // Handle small asteroids
+        if (asteroidSize == "small") {
           console.log("Hello");
           createDestructionEffect.call(this, asteroid, asteroid.scale);
           asteroid.destroy();
           score -= 1;
           updateScoreText.call(this);
         }
+
+        // Handle medium and large asteroids by reducing their size
+        if (asteroidSize == "medium" || asteroidSize == "large") {
+          // Reduce size by 10% only if not already reduced
+          if (!asteroid.reduced) {
+            asteroid.setScale(asteroid.scale * 0.9); // Reduce size by 10%
+            asteroid.reduced = true; // Mark asteroid as reduced to avoid further scaling
+          }
+        }
       }
 
-      // If the asteroid is within the Earth's radius, trigger the game over for medium and large asteroids
+      // Check if the asteroid is within the Earth's radius for game over
       const earthDistance = Phaser.Math.Distance.Between(
         this.earth.x,
         this.earth.y,
