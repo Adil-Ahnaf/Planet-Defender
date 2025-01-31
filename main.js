@@ -153,21 +153,21 @@ function create() {
 
     // Play explosion sound effect
     explosionSound = this.sound.add("explosionMusic");
-    explosionSound.play({ volume: 0.5 }); // Adjust volume as needed
+    explosionSound.play({ volume: 0.5 });
 
     // Replace the asteroid with an explosion effect
     const explosion = this.add.sprite(asteroid.x, asteroid.y, "destroyed");
-    explosion.setScale(asteroid.scaleX); // Match the asteroid's size
+    explosion.setScale(asteroid.scaleX);
     explosion.setOrigin(0.5, 0.5);
 
     // Add an animation for the explosion (fade out and destroy)
     this.tweens.add({
       targets: explosion,
       alpha: 0,
-      scaleX: asteroid.scaleX * 1.5, // Slightly enlarge the explosion
+      scaleX: asteroid.scaleX * 1.5,
       scaleY: asteroid.scaleY * 1.5,
       duration: 500, // Animation duration (ms)
-      onComplete: () => explosion.destroy(), // Destroy sprite after animation
+      onComplete: () => explosion.destroy(),
     });
 
     // Destroy the asteroid
@@ -229,11 +229,11 @@ function create() {
 
     // Play explosion sound effect
     explosionSound = this.sound.add("explosionMusic");
-    explosionSound.play({ volume: 0.5 }); // Adjust volume as needed
+    explosionSound.play({ volume: 0.5 });
 
     // Check or initialize the asteroid's hit count
     if (!boss.hitCount) {
-      boss.hitCount = 0; // Initialize if not already set
+      boss.hitCount = 0;
     }
 
     // Increment the asteroid's hit count
@@ -250,10 +250,10 @@ function create() {
       this.tweens.add({
         targets: explosion,
         alpha: 0,
-        scaleX: boss.scaleX * 1.5, // Slightly enlarge the explosion
+        scaleX: boss.scaleX * 1.5,
         scaleY: boss.scaleY * 1.5,
         duration: 500, // Animation duration (ms)
-        onComplete: () => explosion.destroy(), // Destroy sprite after animation
+        onComplete: () => explosion.destroy(),
       });
 
       // Destroy the asteroid
@@ -262,7 +262,7 @@ function create() {
       updateScoreText();
     } else {
       // If not destroyed, provide feedback (e.g., change asteroid color briefly)
-      boss.setTint(0xff0000); // Red tint for hit feedback
+      boss.setTint(0xff0000);
       this.time.delayedCall(200, () => boss.clearTint());
     }
   });
@@ -525,7 +525,7 @@ function update() {
   if (asteroids && asteroids.getChildren().length > 0) {
     // Loop through all asteroids
     asteroids.getChildren().forEach((asteroid) => {
-      const asteroidSize = asteroid.originalScale; // Use originalScale to determine size
+      const asteroidSize = asteroid.originalScale;
 
       // Check all asteroids within the glow area
       const glowDistance = Phaser.Math.Distance.Between(
@@ -553,8 +553,8 @@ function update() {
         if (asteroidSize == "medium" || asteroidSize == "large") {
           // Reduce size by 10% only if not already reduced
           if (!asteroid.reduced) {
-            asteroid.setScale(asteroid.scale * 0.9); // Reduce size by 10%
-            asteroid.reduced = true; // Mark asteroid as reduced to avoid further scaling
+            asteroid.setScale(asteroid.scale * 0.9);
+            asteroid.reduced = true;
           }
         }
       }
@@ -625,25 +625,68 @@ function createDestructionEffect(target, size) {
   const destructionImage = this.add.image(target.x, target.y, "destroyed");
 
   // Set the scale of the destruction image based on the target's size
-  destructionImage.setScale(size); // The scale is proportional to the target's size
+  destructionImage.setScale(size);
 
   // Optionally, set the opacity to full
-  destructionImage.setAlpha(1); // Full opacity
+  destructionImage.setAlpha(1);
 
   // Fade out the destruction image over time
   this.tweens.add({
     targets: destructionImage,
     alpha: 0,
-    duration: 500, // Time for the image to fade out
+    duration: 500,
     onComplete: () => {
-      destructionImage.destroy(); // Destroy the image after fading out
+      destructionImage.destroy();
     },
   });
 }
 
+function resetGame() {
+  gameOverFlag = false;
+  gameStarted = false;
+  score = 0;
+  updateScoreText();
+  
+  // Clear all game objects
+  asteroids.clear(true, true);
+  alienSoldiers.clear(true, true);
+  alienBoss.clear(true, true);
+  bullets.clear(true, true);
+
+  // Stop background music if playing
+  if (backgroundMusic) {
+    backgroundMusic.stop();
+  }
+
+  // Destroy spaceship and recreate it
+  spaceship.setVisible(false);
+  spaceship.setPosition(this.earth.x, this.earth.y - 100);
+  spaceship.setRotation(0);
+
+  // Remove all active timers
+  this.time.removeAllEvents();
+
+  // Recreate the start button
+  startButton = this.add.image(this.earth.x, this.earth.y, "start").setInteractive();
+  startButton.setScale(Math.min(this.scale.width, this.scale.height) / 4000);
+
+  // Restart game on click
+  startButton.on("pointerdown", () => {
+    startButton.destroy();
+    spaceship.setVisible(true);
+    gameStarted = true;
+    score = 0;
+    updateScoreText();
+    backgroundMusic = this.sound.add("backgroundMusic");
+    backgroundMusic.play({ loop: true, volume: 0.5 });
+
+    spawnAsteroids.call(this, this.earth);
+  });
+}
+
 function gameOver() {
-  if (gameOverFlag) return; // Prevent multiple triggers
-  gameOverFlag = true; // Set the flag to true once game over has started
+  if (gameOverFlag) return;
+  gameOverFlag = true;
 
   const { width, height } = this.scale;
   const gameOverImage = this.add.image(width / 2, height / 2, "game_over");
@@ -653,33 +696,36 @@ function gameOver() {
   // Hide the spaceship (player) after collision
   spaceship.setVisible(false);
 
-  // Stop all sounds and play collision sound
-  this.sound.stopAll(); // Stop all sounds
-  if (!this.sound.get("gameOverMusic")) {
-    // Check if gameOverMusic is not already playing
-    const gameOverSound = this.sound.add("gameOverMusic");
-    gameOverSound.play({
-      volume: 0.8,
-    });
-  }
-  // Reset the score to 0
-  score = 0;
-  updateScoreText();
+  // Stop all sounds and play game over music
+  this.sound.stopAll();
+  const gameOverSound = this.sound.add("gameOverMusic");
+  gameOverSound.play({ volume: 0.8 });
 
-  // Restart the game after a delay
-  this.time.delayedCall(
-    6000,
-    () => {
-      gameOverFlag = false;
-      alienSoldierSpawningStarted = false;
-      alienBossSpawningStarted = false;
-      gameOverImage.destroy();
-      this.scene.restart();
-    },
-    [],
-    this
-  ); // Pass `this` as the context
+  // Reset the score **and ensure UI updates immediately**
+  score = 0;
+  if (scoreText) scoreText.setText("Score: 0");
+
+  // Clear all game objects and timers before restarting
+  this.time.delayedCall(6000, () => {
+    gameOverFlag = false;
+    alienSoldierSpawningStarted = false;
+    alienBossSpawningStarted = false;
+    gameOverImage.destroy();
+
+    // Destroy all game objects
+    if (asteroids) asteroids.clear(true, true);
+    if (alienSoldiers) alienSoldiers.clear(true, true);
+    if (alienBoss) alienBoss.clear(true, true);
+    if (bullets) bullets.clear(true, true);
+
+    // Remove all active timers
+    this.time.removeAllEvents();
+
+    // Restart the scene
+    this.scene.restart();
+  }, [], this);
 }
+
 
 function resize() {
   const { width, height } = this.scale;
